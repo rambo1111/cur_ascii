@@ -1,7 +1,7 @@
 const http = require('http');
 
 // --- CONFIGURATION ---
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 10000;
 const FRAME_DELAY = 100; // Faster frame rate for smoother animation
 const TERMINAL_WIDTH = 80;
 const TERMINAL_HEIGHT = 24;
