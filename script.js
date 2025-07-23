@@ -7,6 +7,20 @@ const PORT = process.env.PORT || 8080;
 // Delay between frames in milliseconds (1000ms = 1s).
 const FRAME_DELAY = 300; 
 
+// --- ANSI COLOR CODES ---
+// We'll cycle through these colors for each frame.
+// \x1b[<color_code>m is the format for ANSI color escape codes.
+const colors = [
+    '\x1b[31m', // Red
+    '\x1b[32m', // Green
+    '\x1b[34m', // Blue
+    '\x1b[33m', // Yellow
+    '\x1b[35m', // Magenta
+    '\x1b[36m'  // Cyan
+];
+// This code resets the terminal color to its default.
+const resetColor = '\x1b[0m';
+
 // --- ANIMATION FRAMES ---
 // An array of strings, where each string is a frame of the ASCII animation.
 const animationFrames = [
@@ -143,14 +157,16 @@ const server = http.createServer((req, res) => {
     const animationInterval = setInterval(() => {
         // Get the current frame from the array.
         const frame = animationFrames[frameIndex];
+        // Get the color for the current frame.
+        const color = colors[frameIndex % colors.length];
 
         // ANSI escape codes are special commands for the terminal.
         // '\033[2J' clears the entire screen.
         // '\033[H' moves the cursor to the top-left corner (home).
         const clearScreenCode = '\033[2J\033[H';
 
-        // Write the clear code and the frame to the response stream.
-        res.write(clearScreenCode + frame);
+        // Write the clear code, the color code, the frame, and the reset color code.
+        res.write(clearScreenCode + color + frame + resetColor);
 
         // Move to the next frame, looping back to the start if we're at the end.
         frameIndex = (frameIndex + 1) % animationFrames.length;
