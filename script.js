@@ -2,7 +2,7 @@
 const http = require('http');
 
 // --- CONFIGURATION ---
-const PORT = 8080; // The port the server will listen on.
+const PORT = process.env.PORT || 8080; // The port the server will listen on.
 const FRAME_DELAY = 200; // Delay between frames in milliseconds (1000ms = 1s).
 
 // --- ANIMATION FRAMES ---
