@@ -1,0 +1,12 @@
+{
+  "name": "curl_ascii",
+  "version": "1.0.0",
+  "description": "ASCII animation for curl",
+  "main": "script.js",
+  "scripts": {
+    "start": "node script.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
