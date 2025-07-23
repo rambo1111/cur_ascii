@@ -41,8 +41,8 @@ curl https://vibhaw.onrender.com
 1. **📂 Clone the repo:**
 
    ```bash
-   git clone https://github.com/<your-username>/vibhaw-ascii.git
-   cd vibhaw-ascii
+   git clone https://github.com/rambo1111/curl_vibhaw.git
+   cd curl_vibhaw
    ```
 2. **⚙ Install Node.js (18+).**
 3. **▶ Start the server:**
