@@ -1,7 +1,7 @@
 {
-  "name": "curl_ascii",
+  "name": "curl_vibhaw",
   "version": "1.0.0",
-  "description": "ASCII animation for curl",
+  "description": "ASCII ANIMATION",
   "main": "script.js",
   "scripts": {
     "start": "node script.js"
