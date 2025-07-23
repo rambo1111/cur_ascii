@@ -2,35 +2,128 @@
 const http = require('http');
 
 // --- CONFIGURATION ---
-const PORT = process.env.PORT || 8080; // The port the server will listen on.
-const FRAME_DELAY = 200; // Delay between frames in milliseconds (1000ms = 1s).
+// Use the port provided by the environment (like Render) or default to 8080 for local testing.
+const PORT = process.env.PORT || 8080; 
+// Delay between frames in milliseconds (1000ms = 1s).
+const FRAME_DELAY = 300; 
 
 // --- ANIMATION FRAMES ---
-// Store your ASCII art frames inside backticks (`).
-// Each string in the array is a separate frame.
+// An array of strings, where each string is a frame of the ASCII animation.
 const animationFrames = [
-    `
-    '   .   '
-      .   .
-' .  _  . '
-   . / \\ .
-  . /   \\ .
-'  '     '  '
+`
+VVVVVVVV           VVVVVVVV
+V::::::V           V::::::V
+V::::::V           V::::::V
+V::::::V           V::::::V
+ V:::::V           V:::::V 
+  V:::::V         V:::::V  
+   V:::::V       V:::::V   
+    V:::::V     V:::::V    
+     V:::::V   V:::::V     
+      V:::::V V:::::V      
+       V:::::V:::::V       
+        V:::::::::V        
+         V:::::::V         
+          V:::::V          
+           V:::V           
+            VVV            
 `,
-    `
-       '
-    ' . '
-' .  * . '
-   ' \\ / '
-  .   V   .
-'  .  '  .  '
+`
+IIIIIIIIII
+I::::::::I
+I::::::::I
+II::::::II
+  I::::I  
+  I::::I  
+  I::::I  
+  I::::I  
+  I::::I  
+  I::::I  
+  I::::I  
+  I::::I  
+II::::::II
+I::::::::I
+I::::::::I
+IIIIIIIIII
+`,
+`
+BBBBBBBBBBBBBBBBB   
+B::::::::::::::::B  
+B::::::BBBBBB:::::B 
+BB:::::B     B:::::B
+  B::::B     B:::::B
+  B::::B     B:::::B
+  B::::BBBBBB:::::B 
+  B:::::::::::::BB  
+  B::::BBBBBB:::::B 
+  B::::B     B:::::B
+  B::::B     B:::::B
+  B::::B     B:::::B
+BB:::::BBBBBB::::::B
+B:::::::::::::::::B 
+B::::::::::::::::B  
+BBBBBBBBBBBBBBBBB   
+`,
+`
+HHHHHHHHH     HHHHHHHHH
+H:::::::H     H:::::::H
+H:::::::H     H:::::::H
+HH::::::H     H::::::HH
+  H:::::H     H:::::H  
+  H:::::H     H:::::H  
+  H::::::HHHHH::::::H  
+  H:::::::::::::::::H  
+  H:::::::::::::::::H  
+  H::::::HHHHH::::::H  
+  H:::::H     H:::::H  
+  H:::::H     H:::::H  
+HH::::::H     H::::::HH
+H:::::::H     H:::::::H
+H:::::::H     H:::::::H
+HHHHHHHHH     HHHHHHHHH
+`,
+`
+               AAA               
+              A:::A              
+             A:::::A             
+            A:::::::A            
+           A:::::::::A           
+          A:::::A:::::A          
+         A:::::A A:::::A         
+        A:::::A   A:::::A        
+       A:::::A     A:::::A       
+      A:::::AAAAAAAAA:::::A      
+     A:::::::::::::::::::::A     
+    A:::::AAAAAAAAAAAAA:::::A    
+   A:::::A             A:::::A   
+  A:::::A               A:::::A  
+ A:::::A                 A:::::A 
+AAAAAAA                   AAAAAAA
+`,
+`
+WWWWWWWW                           WWWWWWWW
+W::::::W                           W::::::W
+W::::::W                           W::::::W
+W::::::W                           W::::::W
+ W:::::W           WWWWW           W:::::W 
+  W:::::W         W:::::W         W:::::W  
+   W:::::W       W:::::::W       W:::::W   
+    W:::::W     W:::::::::W     W:::::W    
+     W:::::W   W:::::W:::::W   W:::::W     
+      W:::::W W:::::W W:::::W W:::::W      
+       W:::::W:::::W   W:::::W:::::W       
+        W:::::::::W     W:::::::::W        
+         W:::::::W       W:::::::W         
+          W:::::W         W:::::W          
+           W:::W           W:::W           
+            WWW             WWW            
 `
 ];
 
 // Create the HTTP server.
 const server = http.createServer((req, res) => {
     
-    // Log to the console when someone connects.
+    // Log to the server console when someone connects.
     console.log('Connection received from:', req.socket.remoteAddress);
 
     // --- STREAMING LOGIC ---
@@ -46,9 +139,9 @@ const server = http.createServer((req, res) => {
 
     let frameIndex = 0;
     
-    // Use setInterval to repeatedly send frames.
+    // Use setInterval to repeatedly send frames to the client.
     const animationInterval = setInterval(() => {
-        // Get the current frame.
+        // Get the current frame from the array.
         const frame = animationFrames[frameIndex];
 
         // ANSI escape codes are special commands for the terminal.
@@ -69,7 +162,7 @@ const server = http.createServer((req, res) => {
     // The 'close' event is fired when the user's `curl` command is terminated (e.g., with Ctrl+C).
     res.on('close', () => {
         console.log('Connection closed. Stopping animation stream.');
-        clearInterval(animationInterval); // Stop sending frames.
+        clearInterval(animationInterval); // Stop sending frames to prevent memory leaks.
     });
 });
 
