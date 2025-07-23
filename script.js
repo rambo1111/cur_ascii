@@ -6,6 +6,16 @@ const FRAME_DELAY = 100; // Faster frame rate for smoother animation
 const TERMINAL_WIDTH = 80;
 const TERMINAL_HEIGHT = 24;
 
+// --- NEW EFFECTS CONFIGURATION ---
+const BACKGROUND_MODE = 'matrix'; // 'matrix' or 'starfield'
+const ENABLE_GLITCH_EFFECT = true;
+const GLITCH_PROBABILITY = 0.05; // 5% chance per frame in bouncing mode
+const ENABLE_PULSING_EFFECT = true;
+const ENABLE_PARTICLE_EXPLOSION = true;
+const ENABLE_FADING_TRAILS = true;
+const PARTICLE_COUNT = 30;
+const TRAIL_LENGTH = 15;
+
 // --- "MATRIX RAIN" CONFIGURATION ---
 const RAIN_DENSITY = 70; // Number of raindrops
 
@@ -18,8 +28,10 @@ const colors = [
 ].map(c => `\x1b[38;5;${c}m`);
 const resetColor = '\x1b[0m';
 const matrixHeadColor = '\x1b[38;5;155m'; // Bright Green
-const matrixTrailColor = '\x1b[38;5;22m'; // Dark Green
-const infoColor = '\x1b[38;5;246m'; // Grey
+const matrixTrailColor = '\x1b[38;5;22m';  // Dark Green
+const infoColor = '\x1b[38;5;246m';      // Grey
+const starColor = '\x1b[38;5;252m';      // Light grey for stars
+const particleColors = [40, 41, 42, 43, 44, 45, 34, 35, 36]; // Various greens for particles
 
 // --- ANIMATION FRAMES ---
 const animationFrames = [
@@ -149,17 +161,55 @@ W::::::W                           W::::::W
     return { lines, width, height };
 });
 
+const bootSequence = [
+    "Connection established...",
+    "VIBHAW BIOS v2.5a",
+    "Initializing terminal...",
+    "Memory check: 65536 KB OK",
+    "Loading animation modules...",
+    "  - Particle engine... OK",
+    "  - Trail renderer... OK",
+    "  - Background... OK",
+    "Starting render loop.",
+    ""
+];
 
 // --- HELPER FUNCTIONS ---
 
 // Draws ASCII art at a specific location
-function drawArtAtPosition(res, art, x, y, color) {
+function drawArtAtPosition(res, art, x, y, color, frameCount) {
     let artString = '';
+    const isGlitching = ENABLE_GLITCH_EFFECT && Math.random() < GLITCH_PROBABILITY;
+
     art.lines.forEach((line, index) => {
-        artString += `\x1b[${y + index};${x}H${color}${line}`;
+        let processedLine = line;
+        if (isGlitching) {
+            const lineChars = line.split('');
+            if(Math.random() < 0.5 && line.trim().length > 0) {
+                 const glitchIndex = Math.floor(Math.random() * line.length);
+                 lineChars[glitchIndex] = ['#', '*', '%', '$'][Math.floor(Math.random() * 4)];
+                 processedLine = lineChars.join('');
+            }
+        }
+        artString += `\x1b[${y + index};${x}H${color}${processedLine}`;
     });
     res.write(artString);
 }
+
+// NEW: Draws art with a sweeping rainbow color effect
+function drawArtWithRainbowWave(res, art, x, y, frameCount) {
+    let artString = '';
+    art.lines.forEach((line, lineIndex) => {
+        let lineContent = `\x1b[${y + lineIndex};${x}H`;
+        line.split('').forEach((char, charIndex) => {
+            const colorIndex = (x + charIndex + frameCount) % colors.length;
+            lineContent += `${colors[colorIndex]}${char}`;
+        });
+        artString += lineContent;
+    });
+    res.write(artString);
+}
+
 
 // Draws the live info bar
 function drawInfoBar(res, frameCount) {
@@ -174,13 +224,10 @@ function updateAndDrawMatrixRain(res, raindrops) {
     let rainString = '';
     for (const drop of raindrops) {
         const trailY = drop.y - 1;
-        // Move cursor and draw the darker trail character
         if (trailY > 0) {
             rainString += `\x1b[${trailY};${drop.x}H${matrixTrailColor}${drop.char}`;
         }
-        // Move cursor and draw the bright head character
         rainString += `\x1b[${drop.y};${drop.x}H${matrixHeadColor}${drop.char}`;
-
         drop.y++;
         if (drop.y > TERMINAL_HEIGHT) {
             drop.y = 1;
@@ -189,6 +236,56 @@ function updateAndDrawMatrixRain(res, raindrops) {
     }
     res.write(rainString);
 }
+
+// NEW: Updates and draws the starfield background
+function updateAndDrawStarfield(res, stars, frameCount) {
+    let starString = '';
+    for (const star of stars) {
+        // Twinkle effect using sine wave based on frame count and star's unique speed
+        if (Math.sin(frameCount / star.twinkleSpeed) > 0.6) {
+             starString += `\x1b[${star.y};${star.x}H${starColor}${star.char}`;
+        }
+    }
+    res.write(starString);
+}
+
+// NEW: Updates and draws particle explosions
+function updateAndDrawParticles(res, particles) {
+    let particleString = '';
+    particles.forEach((p, index) => {
+        // Draw
+        const color = `\x1b[38;5;${p.color}m`;
+        particleString += `\x1b[${Math.round(p.y)};${Math.round(p.x)}H${color}${p.char}`;
+
+        // Update
+        p.x += p.dx;
+        p.y += p.dy;
+        p.lifespan--;
+
+        if (p.lifespan <= 0) {
+            particles.splice(index, 1);
+        }
+    });
+    res.write(particleString);
+}
+
+// NEW: Draws fading trails behind bouncing objects
+function drawTrails(res, trails) {
+    let trailString = '';
+    trails.forEach((trail, index) => {
+        // Fade effect by reducing brightness (using a darker green)
+        const fadeColor = `\x1b[38;5;${22 + (trail.lifespan)}m`;
+        trail.art.lines.forEach((line, lineIndex) => {
+            trailString += `\x1b[${trail.y + lineIndex};${trail.x}H${fadeColor}${line}`;
+        });
+        trail.lifespan--;
+        if (trail.lifespan <= 0) {
+            trails.splice(index, 1);
+        }
+    });
+    res.write(trailString);
+}
+
 
 // --- SERVER LOGIC ---
 const server = http.createServer((req, res) => {
@@ -201,7 +298,7 @@ const server = http.createServer((req, res) => {
 
     // --- STATE INITIALIZATION FOR THIS CONNECTION ---
     const state = {
-        mode: 'spelling', // modes: spelling -> finale -> bouncing
+        mode: 'booting', // modes: booting -> spelling -> finale -> bouncing
         modeCounter: 0,
         frameCount: 0,
         frameIndex: 0,
@@ -211,7 +308,15 @@ const server = http.createServer((req, res) => {
             x: Math.floor(Math.random() * TERMINAL_WIDTH) + 1,
             y: Math.floor(Math.random() * TERMINAL_HEIGHT) + 1,
             char: String.fromCharCode(0x30A0 + Math.random() * 96) // Katakana characters
-        }))
+        })),
+        stars: Array.from({ length: 100 }, () => ({
+            x: Math.floor(Math.random() * TERMINAL_WIDTH) + 1,
+            y: Math.floor(Math.random() * TERMINAL_HEIGHT) + 1,
+            char: ['.', '*'][Math.floor(Math.random() * 2)],
+            twinkleSpeed: 10 + Math.random() * 40
+        })),
+        particles: [],
+        trails: [],
     };
 
     const animationInterval = setInterval(() => {
@@ -220,18 +325,47 @@ const server = http.createServer((req, res) => {
         res.write(output);
 
         // 1. DRAW BACKGROUND AND INFO
-        updateAndDrawMatrixRain(res, state.raindrops);
+        if (BACKGROUND_MODE === 'matrix') {
+            updateAndDrawMatrixRain(res, state.raindrops);
+        } else {
+            updateAndDrawStarfield(res, state.stars, state.frameCount);
+        }
         drawInfoBar(res, state.frameCount);
 
-        // 2. STATE-BASED ANIMATION LOGIC
+        // 2. DRAW EFFECTS (TRAILS, PARTICLES) - these should be behind the main art
+        if(ENABLE_FADING_TRAILS) drawTrails(res, state.trails);
+        if(ENABLE_PARTICLE_EXPLOSION) updateAndDrawParticles(res, state.particles);
+
+        // 3. STATE-BASED ANIMATION LOGIC
         const currentArt = animationFrames[state.frameIndex];
-        const currentColor = colors[state.colorIndex];
+        let currentColor = colors[state.colorIndex];
 
         switch (state.mode) {
+             case 'booting':
+                let bootText = '';
+                const linesToShow = Math.floor(state.modeCounter / 5);
+                for(let i=0; i < linesToShow && i < bootSequence.length; i++) {
+                    bootText += `\x1b[${i+2};4H${infoColor}${bootSequence[i]}`;
+                }
+                res.write(bootText);
+                if (linesToShow >= bootSequence.length) {
+                    state.mode = 'spelling';
+                    state.modeCounter = 0;
+                }
+                state.modeCounter++;
+                break;
+
             case 'spelling':
                 const centeredX = Math.floor((TERMINAL_WIDTH - currentArt.width) / 2);
                 const centeredY = Math.floor((TERMINAL_HEIGHT - currentArt.height) / 2);
-                drawArtAtPosition(res, currentArt, centeredX, centeredY, currentColor);
+
+                if (ENABLE_PULSING_EFFECT) {
+                    const pulse = Math.sin(state.frameCount / 10) * 5;
+                    const pulseColorIndex = (state.colorIndex + Math.floor(pulse) + colors.length) % colors.length;
+                    currentColor = colors[pulseColorIndex];
+                }
+
+                drawArtAtPosition(res, currentArt, centeredX, centeredY, currentColor, state.frameCount);
                 state.modeCounter++;
                 if (state.modeCounter > 10) { // Show each letter for ~1 second
                     state.modeCounter = 0;
@@ -243,40 +377,84 @@ const server = http.createServer((req, res) => {
                 break;
 
             case 'finale':
-                // Flash the final frame
-                if (state.modeCounter % 2 === 0) {
-                    const cx = Math.floor((TERMINAL_WIDTH - currentArt.width) / 2);
-                    const cy = Math.floor((TERMINAL_HEIGHT - currentArt.height) / 2);
-                    drawArtAtPosition(res, currentArt, cx, cy, currentColor);
-                }
+                const cx = Math.floor((TERMINAL_WIDTH - currentArt.width) / 2);
+                const cy = Math.floor((TERMINAL_HEIGHT - currentArt.height) / 2);
+                // Use rainbow wave for the finale
+                drawArtWithRainbowWave(res, currentArt, cx, cy, state.frameCount);
+
                 state.modeCounter++;
-                if (state.modeCounter > 20) { // Flash for ~2 seconds
+                if (state.modeCounter > 40) { // Show for ~4 seconds
                     state.mode = 'bouncing';
                     state.frameIndex = 0; // Start bouncing from the first letter
                 }
                 break;
 
             case 'bouncing':
+                // Add current state to trail
+                if (ENABLE_FADING_TRAILS && state.frameCount % 2 === 0) {
+                     state.trails.unshift({ x: state.art.x, y: state.art.y, art: currentArt, lifespan: TRAIL_LENGTH });
+                     if (state.trails.length > TRAIL_LENGTH) state.trails.pop();
+                }
+
                 // Update position
                 state.art.x += state.art.dx;
                 state.art.y += state.art.dy;
 
-                // Bounce off walls and change color
+                // Bounce off walls
                 let bounced = false;
-                if (state.art.x <= 1 || state.art.x + currentArt.width >= TERMINAL_WIDTH) {
+                let bounceX, bounceY;
+                if (state.art.x <= 1) {
                     state.art.dx *= -1;
+                    state.art.x = 1;
                     bounced = true;
+                    bounceX = state.art.x + currentArt.width/2;
+                    bounceY = state.art.y + currentArt.height/2;
                 }
-                if (state.art.y <= 1 || state.art.y + currentArt.height >= TERMINAL_HEIGHT) {
+                if (state.art.x + currentArt.width >= TERMINAL_WIDTH) {
+                    state.art.dx *= -1;
+                    state.art.x = TERMINAL_WIDTH - currentArt.width;
+                    bounced = true;
+                    bounceX = state.art.x + currentArt.width/2;
+                    bounceY = state.art.y + currentArt.height/2;
+                }
+
+                if (state.art.y <= 1) {
+                     state.art.dy *= -1;
+                     state.art.y = 1;
+                     bounced = true;
+                     bounceX = state.art.x + currentArt.width/2;
+                     bounceY = state.art.y + currentArt.height/2;
+                }
+                 if (state.art.y + currentArt.height >= TERMINAL_HEIGHT) {
                     state.art.dy *= -1;
+                    state.art.y = TERMINAL_HEIGHT - currentArt.height;
                     bounced = true;
+                    bounceX = state.art.x + currentArt.width/2;
+                    bounceY = state.art.y + currentArt.height/2;
                 }
+
+
                 if (bounced) {
                     state.colorIndex = (state.colorIndex + 10) % colors.length;
-                    // FIX: Loop only through the letter frames (length - 1), excluding the final party frame.
                     state.frameIndex = (state.frameIndex + 1) % (animationFrames.length - 1);
+                    // Create particle explosion
+                    if (ENABLE_PARTICLE_EXPLOSION) {
+                        for(let i=0; i < PARTICLE_COUNT; i++) {
+                            const angle = Math.random() * Math.PI * 2;
+                            const speed = 0.5 + Math.random() * 1.5;
+                            state.particles.push({
+                                x: bounceX,
+                                y: bounceY,
+                                dx: Math.cos(angle) * speed,
+                                dy: Math.sin(angle) * speed * 0.5, // vertical speed halved for terminal aspect ratio
+                                char: '*',
+                                color: particleColors[Math.floor(Math.random() * particleColors.length)],
+                                lifespan: 10 + Math.random() * 10
+                            })
+                        }
+                    }
                 }
-                drawArtAtPosition(res, currentArt, state.art.x, state.art.y, colors[state.colorIndex]);
+                drawArtAtPosition(res, currentArt, state.art.x, state.art.y, colors[state.colorIndex], state.frameCount);
                 break;
         }
 
@@ -292,6 +470,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`To view, run: curl localhost:${PORT}`);
+    console.log(`Server running on PORT ${PORT}`);
 });
