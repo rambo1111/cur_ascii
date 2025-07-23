@@ -163,7 +163,7 @@ function drawArtAtPosition(res, art, x, y, color) {
 
 // Draws the live info bar
 function drawInfoBar(res, frameCount) {
-    const time = new Date().toLocaleTimeString();
+    const time = new Date().toUTCString();
     const info = `[ ${time} ] - [ Frames: ${frameCount} ]`;
     const pos = TERMINAL_WIDTH - info.length;
     res.write(`\x1b[1;${pos}H${infoColor}${info}`);
