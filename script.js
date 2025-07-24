@@ -171,6 +171,14 @@ const server = http.createServer((req, res) => {
     // Check the User-Agent header
     const userAgent = req.headers['user-agent'] || '';
 
+    // Handle cron job ping
+    if (req.url === '/cron') {
+        console.log('cron-job successful');
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('cron acknowledged\n');
+        return;
+    }
+
     // If User-Agent contains 'curl', show the animation. Otherwise, redirect.
     if (userAgent.toLowerCase().includes('curl')) {
         console.log('Connection received from curl!');
